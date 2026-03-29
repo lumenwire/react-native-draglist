@@ -510,6 +510,7 @@ function DragListImpl<T>(
       layouts={layouts}
       horizontal={props.horizontal}
       dataGen={dataGenRef.current}
+      isPanGranted={panGrantedRef.current}
     >
       <View
         ref={flatWrapRef}
@@ -568,6 +569,7 @@ function CellRendererComponent<T>(props: CellRendererProps<T>) {
     layouts,
     horizontal,
     dataGen,
+    isPanGranted,
   } = useDragListContext<T>();
   const cellRef = useRef<View>(null);
   const key = keyExtractor(item, index);
@@ -610,7 +612,10 @@ function CellRendererComponent<T>(props: CellRendererProps<T>) {
   );
 
   useEffect(() => {
-    if (activeData != null) {
+    if (activeData != null && !isPanGranted) {
+      return;
+    }
+    if (activeData != null && isPanGranted) {
       const activeKey = activeData.key;
       const activeIndex = activeData.index;
 
@@ -633,12 +638,12 @@ function CellRendererComponent<T>(props: CellRendererProps<T>) {
       }
     }
     return Animated.timing(anim, {
-      duration: activeData?.key ? SLIDE_MILLIS : 0,
+      duration: activeData?.key && isPanGranted ? SLIDE_MILLIS : 0,
       easing: Easing.inOut(Easing.linear),
       toValue: 0,
       useNativeDriver: true,
     }).start();
-  }, [index, panIndex, activeData]);
+  }, [index, panIndex, activeData, isPanGranted]);
 
   // This resets our anim whenever a next generation of data arrives, so things are never translated
   // to non-zero positions by the time we render new content.
