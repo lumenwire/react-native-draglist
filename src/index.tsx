@@ -111,6 +111,7 @@ function DragListImpl<T>(
   });
   const layouts = useRef<LayoutCache>({}).current;
   const panGrantedRef = useRef(false);
+  const [isPanGranted, setIsPanGranted] = useState(false);
   const grantScrollPosRef = useRef(0); // Scroll pos when granted
   // The amount you need to add to the touched position to get to the active
   // item's center.
@@ -179,6 +180,7 @@ function DragListImpl<T>(
       grantScrollPosRef.current = scrollPos.current;
       setPan(0);
       panGrantedRef.current = true;
+      setIsPanGranted(true);
       flatWrapRefPosUpdatedRef.current = false;
       flatWrapRef.current?.measure((_x, _y, _width, _height, pageX, pageY) => {
         // Capture the latest y position upon starting a drag, because the
@@ -350,6 +352,8 @@ function DragListImpl<T>(
           await reorderRef.current?.(activeIndex, panIndex.current);
         } finally {
           isReorderingRef.current = false;
+          pan.setValue(0);
+          reset();
         }
       } else {
         pan.setValue(0);
@@ -381,22 +385,30 @@ function DragListImpl<T>(
   /**
    * When you don't want to trigger a re-render, pass false so we don't setExtra.
    */
-  const reset = useCallback((shouldSetExtra = true) => {
-    activeDataRef.current = null;
-    panIndex.current = -1;
-    // setPan(0); Deliberately not handled here in render path, but in useLayoutEffect
-    if (shouldSetExtra) {
-      setExtra({
-        // Trigger re-render
-        activeKey: null,
-        panIndex: -1,
-        detritus: Math.random().toString(),
-      });
-    }
-    panGrantedRef.current = false;
-    grantActiveCenterOffsetRef.current = 0;
-    clearAutoScrollTimer();
-  }, []);
+  const reset = useCallback(
+    (shouldSetExtra = true) => {
+      activeDataRef.current = null;
+      panIndex.current = -1;
+      // Synchronously zero pan so the next item that becomes isActive
+      // never inherits a leftover translate from the previous drag
+      // (the async setPan in useLayoutEffect is not fast enough when the
+      // user presses a new item right after a reorder completes).
+      pan.setValue(0);
+      if (shouldSetExtra) {
+        setExtra({
+          // Trigger re-render
+          activeKey: null,
+          panIndex: -1,
+          detritus: Math.random().toString(),
+        });
+      }
+      panGrantedRef.current = false;
+      setIsPanGranted(false);
+      grantActiveCenterOffsetRef.current = 0;
+      clearAutoScrollTimer();
+    },
+    [pan]
+  );
 
   // Whenever new content arrives, we bump the generation number so stale animations don't continue
   // to apply.
@@ -440,6 +452,7 @@ function DragListImpl<T>(
             (it, i) => keyExtractorRef.current(it, i) === key
           );
           const index = resolvedIndex >= 0 ? resolvedIndex : info.index;
+          pan.setValue(0);
           activeDataRef.current = { index, key };
           panIndex.current = index;
           setExtra({ activeKey: key, panIndex: index });
@@ -470,7 +483,7 @@ function DragListImpl<T>(
         isActive,
       });
     },
-    [props.renderItem, data.length]
+    [props.renderItem, data.length, pan]
   );
 
   const onDragScroll = useCallback(
@@ -510,7 +523,7 @@ function DragListImpl<T>(
       layouts={layouts}
       horizontal={props.horizontal}
       dataGen={dataGenRef.current}
-      isPanGranted={panGrantedRef.current}
+      isPanGranted={isPanGranted}
     >
       <View
         ref={flatWrapRef}
