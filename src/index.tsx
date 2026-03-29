@@ -352,13 +352,11 @@ function DragListImpl<T>(
           isReorderingRef.current = false;
         }
       } else {
-        // #76 - Only reset here if we're not going to reorder the list. If we are instead
-        // reordering the list, we reset once the parent updates data. Otherwise things will jump
-        // around visually.
+        pan.setValue(0);
         reset();
       }
     },
-    []
+    [pan]
   );
 
   const panResponder = useRef(
