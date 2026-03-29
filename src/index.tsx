@@ -403,9 +403,25 @@ function DragListImpl<T>(
   // Whenever new content arrives, we bump the generation number so stale animations don't continue
   // to apply.
   if (lastDataRef.current !== data) {
+    const prev = lastDataRef.current;
+    const prevKeys =
+      prev && prev.length
+        ? new Set(prev.map((it, i) => keyExtractorRef.current(it, i)))
+        : new Set<string>();
+    const sameSize = prevKeys.size === data.length;
+    const reorderOnly =
+      sameSize &&
+      data.length > 0 &&
+      data.every((it, i) => prevKeys.has(keyExtractorRef.current(it, i)));
     lastDataRef.current = data;
-    dataGenRef.current++;
-    reset(false); // Don't trigger re-render because we're already rendering.
+    if (reorderOnly) {
+      if (activeDataRef.current != null) {
+        reset(true);
+      }
+    } else {
+      dataGenRef.current++;
+      reset(false); // Don't trigger re-render because we're already rendering.
+    }
   }
 
   // For reasons unclear to me, you need this useLayoutEffect here -- _even if you have an empty
@@ -421,11 +437,14 @@ function DragListImpl<T>(
       const key = keyExtractorRef.current(info.item, info.index);
       const isActive = key === activeDataRef.current?.key;
       const onDragStart = () => {
-        // We don't allow dragging for lists less than 2 elements
         if (data.length > 1) {
-          activeDataRef.current = { index: info.index, key: key };
-          panIndex.current = info.index;
-          setExtra({ activeKey: key, panIndex: info.index });
+          const resolvedIndex = dataRef.current.findIndex(
+            (it, i) => keyExtractorRef.current(it, i) === key
+          );
+          const index = resolvedIndex >= 0 ? resolvedIndex : info.index;
+          activeDataRef.current = { index, key };
+          panIndex.current = index;
+          setExtra({ activeKey: key, panIndex: index });
         }
       };
       const onDragEnd = () => {
