@@ -154,6 +154,7 @@ function DragListImpl<T>(
   });
   const flatWrapRefPosUpdatedRef = useRef(false);
   const scrollPos = useRef(0);
+  const autoScrollPosRef = useRef(0);
 
   // pan is the drag dy
   const pan = useRef(new Animated.Value(0)).current;
@@ -178,6 +179,7 @@ function DragListImpl<T>(
   const onPanResponderGrant = useCallback(
     (_: GestureResponderEvent, gestate: PanResponderGestureState) => {
       grantScrollPosRef.current = scrollPos.current;
+      autoScrollPosRef.current = scrollPos.current;
       setPan(0);
       panGrantedRef.current = true;
       setIsPanGranted(true);
@@ -306,9 +308,11 @@ function DragListImpl<T>(
 
       if (offset !== 0) {
         function scrollOnce(distance: number) {
+          const nextOffset = Math.max(0, autoScrollPosRef.current + distance);
+          autoScrollPosRef.current = nextOffset;
           flatRef.current?.scrollToOffset({
-            animated: true,
-            offset: Math.max(0, scrollPos.current + distance),
+            animated: false,
+            offset: nextOffset,
           });
           updateRendering();
         }
@@ -488,9 +492,11 @@ function DragListImpl<T>(
 
   const onDragScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      scrollPos.current = props.horizontal
+      const nextScrollPos = props.horizontal
         ? event.nativeEvent.contentOffset.x
         : event.nativeEvent.contentOffset.y;
+      scrollPos.current = nextScrollPos;
+      autoScrollPosRef.current = nextScrollPos;
       if (onScroll) {
         onScroll(event);
       }
