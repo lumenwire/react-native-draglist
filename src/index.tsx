@@ -301,9 +301,9 @@ function DragListImpl<T>(
       if (props.scrollEnabled === false) {
         offset = 0;
       } else if (leadingEdge < 0) {
-        offset = -dragItemExtent;
+        offset = -Math.max(8, dragItemExtent * 0.35);
       } else if (trailingEdge > flatWrapLayout.current.extent) {
-        offset = dragItemExtent;
+        offset = Math.max(8, dragItemExtent * 0.35);
       }
 
       if (offset !== 0) {
